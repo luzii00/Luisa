@@ -40,6 +40,16 @@ SinglePhaseReservoir::SinglePhaseReservoir( const string & name,
 SinglePhaseReservoir::~SinglePhaseReservoir()
 {}
 
+void SinglePhaseReservoir::postProcessInput()
+{
+  ReservoirSolverBase::postProcessInput();
+
+  // check that the flow solver is compatible with SinglePhaseReservoir
+
+  
+}
+  
+
 void SinglePhaseReservoir::initializePostInitialConditionsPreSubGroups()
 {
   ReservoirSolverBase::initializePostInitialConditionsPreSubGroups();

@@ -70,7 +70,6 @@ public:
   using BASE::m_solidModelNames;
   using BASE::m_permeabilityModelNames;
   using BASE::m_poroElasticFlag;
-  using BASE::m_coupledWellsFlag;
   using BASE::m_numDofPerCell;
   using BASE::m_fluxEstimate;
   using BASE::m_elemGhostRank;

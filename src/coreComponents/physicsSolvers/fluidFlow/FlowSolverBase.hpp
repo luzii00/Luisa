@@ -66,8 +66,6 @@ public:
 
   void setPoroElasticCoupling() { m_poroElasticFlag = 1; }
 
-  void setReservoirWellsCoupling() { m_coupledWellsFlag = 1; }
-
   arrayView1d< string const > fluidModelNames() const { return m_fluidModelNames; }
 
   arrayView1d< string const > permeabilityModelNames() const { return m_permeabilityModelNames; }
@@ -139,9 +137,6 @@ protected:
 
   /// flag to determine whether or not coupled with solid solver
   integer m_poroElasticFlag;
-
-  /// flag to determine whether or not coupled with wells
-  integer m_coupledWellsFlag;
 
   /// the number of Degrees of Freedom per cell
   integer m_numDofPerCell;

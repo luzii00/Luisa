@@ -170,7 +170,7 @@ public:
                                       CRSMatrixView< real64, globalIndex const > const & localMatrix,
                                       arrayView1d< real64 > const & localRhs ) = 0;
 
-  FlowSolverBase * getFlowSolver() const { return m_flowSolver; }
+  SolverBase * getFlowSolver() const { return m_flowSolver; }
 
   WellSolverBase * getWellSolver() const { return m_wellSolver; }
 
@@ -216,7 +216,7 @@ protected:
   string m_wellSolverName;
 
   /// pointer to the flow sub-solver
-  FlowSolverBase * m_flowSolver;
+  SolverBase * m_flowSolver;
 
   /// pointer to the well sub-solver
   WellSolverBase * m_wellSolver;
