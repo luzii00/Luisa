@@ -41,6 +41,29 @@ CompositionalMultiphaseReservoir::CompositionalMultiphaseReservoir( const string
 CompositionalMultiphaseReservoir::~CompositionalMultiphaseReservoir()
 {}
 
+void CompositionalMultiphaseReservoir::postProcessInput()
+{
+  ReservoirSolverBase::postProcessInput();
+
+  GEOSX_THROW_IF( !m_flowSolver,
+		  getCatalogName() << " " << getName()
+		  << ": In postProcessInput, the flow solver has not been set yet"
+		  InputError );
+  
+  // check that the flow solver is compatible with CompositionalMultiphaseReservoir
+  bool const isSupported = 
+    ( m_flowSolver->getCatalogName() == CompositionalMultiphaseFVM::catalogName() ) ||
+    ( m_flowSolver->getCatalogName() == CompositionalMultiphaseHybridFVM::catalogName() ) ||
+    ( m_flowSolver->getCatalogName() == MultiphasePoromechanicsSolver::catalogName() );    
+  GEOSX_THROW_IF( !isSupported,
+		  getCatalogName() << " " << getName()
+		  << ": the solver of type " << m_flowSolver->getCatalogName()
+		  << ", named " << m_flowSolver->getName() <<
+		  << " cannot be used with " << getCatalogName(),
+		  InputError );
+ 
+}
+  
 void CompositionalMultiphaseReservoir::initializePostInitialConditionsPreSubGroups()
 {
   ReservoirSolverBase::initializePostInitialConditionsPreSubGroups();

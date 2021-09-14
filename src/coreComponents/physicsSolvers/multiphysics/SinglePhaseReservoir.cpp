@@ -44,9 +44,22 @@ void SinglePhaseReservoir::postProcessInput()
 {
   ReservoirSolverBase::postProcessInput();
 
-  // check that the flow solver is compatible with SinglePhaseReservoir
-
+  GEOSX_THROW_IF( !m_flowSolver,
+		  getCatalogName() << " " << getName()
+		  << ": In postProcessInput, the flow solver has not been set yet"
+		  InputError );
   
+  // check that the flow solver is compatible with SinglePhaseReservoir
+  bool const isSupported = 
+    ( m_flowSolver->getCatalogName() == SinglePhaseFVM< SinglePhaseBase >::catalogName() ) ||
+    ( m_flowSolver->getCatalogName() == SinglePhaseHybridFVM::catalogName() ) ||
+    ( m_flowSolver->getCatalogName() == SinglePhasePoromechanicsSolver::catalogName() );    
+  GEOSX_THROW_IF( !isSupported,
+		  getCatalogName() << " " << getName()
+		  << ": the solver of type " << m_flowSolver->getCatalogName()
+		  << ", named " << m_flowSolver->getName() <<
+		  << " cannot be used with " << getCatalogName(),
+		  InputError );
 }
   
 
