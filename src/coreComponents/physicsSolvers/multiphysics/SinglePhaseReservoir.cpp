@@ -20,9 +20,11 @@
 #include "SinglePhaseReservoir.hpp"
 
 #include "common/TimingMacros.hpp"
-#include "physicsSolvers/fluidFlow/SinglePhaseBase.hpp"
-#include "physicsSolvers/fluidFlow/wells/SinglePhaseWell.hpp"
 #include "physicsSolvers/fluidFlow/SinglePhaseFVM.hpp"
+#include "physicsSolvers/fluidFlow/SinglePhaseHybridFVM.hpp"
+#include "physicsSolvers/fluidFlow/wells/SinglePhaseWell.hpp"
+#include "physicsSolvers/multiphysics/SinglePhasePoromechanicsSolver.hpp"
+
 
 namespace geosx
 {
@@ -45,28 +47,84 @@ void SinglePhaseReservoir::postProcessInput()
   ReservoirSolverBase::postProcessInput();
 
   GEOSX_THROW_IF( !m_flowSolver,
-		  getCatalogName() << " " << getName()
-		  << ": In postProcessInput, the flow solver has not been set yet"
-		  InputError );
-  
+                  catalogName() << " " << getName()
+                                << ": In postProcessInput, the flow solver has not been set yet",
+                  InputError );
+
   // check that the flow solver is compatible with SinglePhaseReservoir
-  bool const isSupported = 
-    ( m_flowSolver->getCatalogName() == SinglePhaseFVM< SinglePhaseBase >::catalogName() ) ||
-    ( m_flowSolver->getCatalogName() == SinglePhaseHybridFVM::catalogName() ) ||
-    ( m_flowSolver->getCatalogName() == SinglePhasePoromechanicsSolver::catalogName() );    
+  bool const isSupported =
+    dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver ) ||
+    dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver ) ||
+    dynamicCast< SinglePhasePoromechanicsSolver const * >( m_flowSolver );
   GEOSX_THROW_IF( !isSupported,
-		  getCatalogName() << " " << getName()
-		  << ": the solver of type " << m_flowSolver->getCatalogName()
-		  << ", named " << m_flowSolver->getName() <<
-		  << " cannot be used with " << getCatalogName(),
-		  InputError );
+                  catalogName() << " " << getName()
+                                << ": the solver of type " << m_flowSolver->catalogName()
+                                << ", named " << m_flowSolver->getName()
+                                << " cannot be used with " << catalogName(),
+                  InputError );
+
+  if( dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver ) ||
+      dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver ) )
+  {
+    m_wellSolver->setFlowSolverName( m_flowSolverName );
+  }
+  else
+  {
+    SinglePhasePoromechanicsSolver const * solver = dynamicCast< SinglePhasePoromechanicsSolver const * >( m_flowSolver );
+    m_wellSolver->setFlowSolverName( solver->getFlowSolver()->getName() );
+  }
 }
-  
 
 void SinglePhaseReservoir::initializePostInitialConditionsPreSubGroups()
 {
   ReservoirSolverBase::initializePostInitialConditionsPreSubGroups();
 
+  DomainPartition & domain = this->getGroupByPath< DomainPartition >( "/Problem/domain" );
+
+  MeshLevel & meshLevel = domain.getMeshBody( 0 ).getMeshLevel( 0 );
+  ElementRegionManager & elemManager = meshLevel.getElemManager();
+
+  // loop over the wells
+  elemManager.forElementSubRegions< WellElementSubRegion >( [&]( WellElementSubRegion & subRegion )
+  {
+
+    array1d< array1d< arrayView3d< real64 const > > > permeability;
+    if( dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver ) )
+    {
+      SinglePhaseFVM< SinglePhaseBase > const * solver =
+        dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->targetRegionNames(),
+                                                                     solver->permeabilityModelNames() );
+    }
+    else if( dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver ) )
+    {
+      SinglePhaseHybridFVM const * solver =
+        dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->targetRegionNames(),
+                                                                     solver->permeabilityModelNames() );
+    }
+    else
+    {
+      SinglePhasePoromechanicsSolver const * solver = dynamicCast< SinglePhasePoromechanicsSolver const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->getFlowSolver()->targetRegionNames(),
+                                                                     solver->getFlowSolver()->permeabilityModelNames() );
+    }
+
+    // compute the Peaceman index (if not read from XML)
+    PerforationData * const perforationData = subRegion.getPerforationData();
+    perforationData->computeWellTransmissibility( meshLevel, subRegion, permeability );
+  } );
+
+  // bind the stored reservoir views to the current domain
+  resetViews( domain );
+
+  // set the MGR recipe
   if( m_flowSolver->getLinearSolverParameters().mgr.strategy == LinearSolverParameters::MGR::StrategyType::singlePhaseHybridFVM )
   {
     m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirHybridFVM;
@@ -184,6 +242,12 @@ void SinglePhaseReservoir::assembleCouplingTerms( real64 const GEOSX_UNUSED_PARA
                                                   CRSMatrixView< real64, globalIndex const > const & localMatrix,
                                                   arrayView1d< real64 > const & localRhs )
 {
+  GEOSX_MARK_FUNCTION;
+
+  using TAG = WellSolverBase::SubRegionTag;
+  using COFFSET = SinglePhaseWell::ColOffset;
+  using ROFFSET = SinglePhaseWell::RowOffset;
+
   MeshLevel const & meshLevel = domain.getMeshBody( 0 ).getMeshLevel( 0 );
   ElementRegionManager const & elemManager = meshLevel.getElemManager();
 
@@ -242,25 +306,23 @@ void SinglePhaseReservoir::assembleCouplingTerms( real64 const GEOSX_UNUSED_PARA
       globalIndex const elemOffset = wellElemDofNumber[iwelem];
 
       // row index on reservoir side
-      eqnRowIndices[WellSolverBase::SubRegionTag::RES] = resDofNumber[er][esr][ei] - rankOffset;
+      eqnRowIndices[TAG::RES] = resDofNumber[er][esr][ei] - rankOffset;
       // column index on reservoir side
-      dofColIndices[WellSolverBase::SubRegionTag::RES] = resDofNumber[er][esr][ei];
+      dofColIndices[TAG::RES] = resDofNumber[er][esr][ei];
 
       // row index on well side
-      eqnRowIndices[WellSolverBase::SubRegionTag::WELL] = LvArray::integerConversion< localIndex >( elemOffset - rankOffset )
-                                                          + SinglePhaseWell::RowOffset::MASSBAL;
+      eqnRowIndices[TAG::WELL] = LvArray::integerConversion< localIndex >( elemOffset - rankOffset ) + ROFFSET::MASSBAL;
       // column index on well side
-      dofColIndices[WellSolverBase::SubRegionTag::WELL] = elemOffset
-                                                          + SinglePhaseWell::ColOffset::DPRES;
+      dofColIndices[TAG::WELL] = elemOffset + COFFSET::DPRES;
 
       // populate local flux vector and derivatives
-      localPerf[WellSolverBase::SubRegionTag::RES] = dt * perfRate[iperf];
-      localPerf[WellSolverBase::SubRegionTag::WELL] = -localPerf[WellSolverBase::SubRegionTag::RES];
+      localPerf[TAG::RES] = dt * perfRate[iperf];
+      localPerf[TAG::WELL] = -localPerf[TAG::RES];
 
       for( localIndex ke = 0; ke < 2; ++ke )
       {
-        localPerfJacobian[WellSolverBase::SubRegionTag::RES][ke] = dt * dPerfRate_dPres[iperf][ke];
-        localPerfJacobian[WellSolverBase::SubRegionTag::WELL][ke] = -localPerfJacobian[WellSolverBase::SubRegionTag::RES][ke];
+        localPerfJacobian[TAG::RES][ke] = dt * dPerfRate_dPres[iperf][ke];
+        localPerfJacobian[TAG::WELL][ke] = -localPerfJacobian[TAG::RES][ke];
       }
 
       for( localIndex i = 0; i < 2; ++i )

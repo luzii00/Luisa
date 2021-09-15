@@ -117,6 +117,8 @@ public:
     constexpr static char const * porousMaterialNamesString() { return "porousMaterialNames"; }
   };
 
+  SinglePhaseBase const * getFlowSolver() const { return m_flowSolver; }
+
   arrayView1d< string const > porousMaterialNames() const { return m_porousMaterialNames; }
 
 protected:

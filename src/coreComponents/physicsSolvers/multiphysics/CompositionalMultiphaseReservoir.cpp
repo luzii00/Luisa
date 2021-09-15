@@ -22,8 +22,11 @@
 
 #include "common/TimingMacros.hpp"
 #include "constitutive/fluid/MultiFluidBase.hpp"
-#include "physicsSolvers/fluidFlow/CompositionalMultiphaseBase.hpp"
+#include "physicsSolvers/fluidFlow/CompositionalMultiphaseFVM.hpp"
+#include "physicsSolvers/fluidFlow/CompositionalMultiphaseHybridFVM.hpp"
 #include "physicsSolvers/fluidFlow/wells/CompositionalMultiphaseWell.hpp"
+#include "physicsSolvers/multiphysics/MultiphasePoromechanicsSolver.hpp"
+
 
 namespace geosx
 {
@@ -46,28 +49,85 @@ void CompositionalMultiphaseReservoir::postProcessInput()
   ReservoirSolverBase::postProcessInput();
 
   GEOSX_THROW_IF( !m_flowSolver,
-		  getCatalogName() << " " << getName()
-		  << ": In postProcessInput, the flow solver has not been set yet"
-		  InputError );
-  
+                  catalogName() << " " << getName()
+                                << ": In postProcessInput, the flow solver has not been set yet",
+                  InputError );
+
   // check that the flow solver is compatible with CompositionalMultiphaseReservoir
-  bool const isSupported = 
-    ( m_flowSolver->getCatalogName() == CompositionalMultiphaseFVM::catalogName() ) ||
-    ( m_flowSolver->getCatalogName() == CompositionalMultiphaseHybridFVM::catalogName() ) ||
-    ( m_flowSolver->getCatalogName() == MultiphasePoromechanicsSolver::catalogName() );    
+  bool const isSupported =
+    dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver ) ||
+    dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver ) ||
+    dynamicCast< MultiphasePoromechanicsSolver const * >( m_flowSolver );
   GEOSX_THROW_IF( !isSupported,
-		  getCatalogName() << " " << getName()
-		  << ": the solver of type " << m_flowSolver->getCatalogName()
-		  << ", named " << m_flowSolver->getName() <<
-		  << " cannot be used with " << getCatalogName(),
-		  InputError );
- 
+                  catalogName() << " " << getName()
+                                << ": the solver of type " << m_flowSolver->catalogName()
+                                << ", named " << m_flowSolver->getName()
+                                << " cannot be used with " << catalogName(),
+                  InputError );
+
+  if( dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver ) ||
+      dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver ) )
+  {
+    m_wellSolver->setFlowSolverName( m_flowSolverName );
+  }
+  else
+  {
+    MultiphasePoromechanicsSolver const * solver = dynamicCast< MultiphasePoromechanicsSolver const * >( m_flowSolver );
+    m_wellSolver->setFlowSolverName( solver->getFlowSolver()->getName() );
+  }
+
 }
-  
+
 void CompositionalMultiphaseReservoir::initializePostInitialConditionsPreSubGroups()
 {
   ReservoirSolverBase::initializePostInitialConditionsPreSubGroups();
 
+  DomainPartition & domain = this->getGroupByPath< DomainPartition >( "/Problem/domain" );
+
+  MeshLevel & meshLevel = domain.getMeshBody( 0 ).getMeshLevel( 0 );
+  ElementRegionManager & elemManager = meshLevel.getElemManager();
+
+  // loop over the wells
+  elemManager.forElementSubRegions< WellElementSubRegion >( [&]( WellElementSubRegion & subRegion )
+  {
+
+    array1d< array1d< arrayView3d< real64 const > > > permeability;
+    if( dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver ) )
+    {
+      CompositionalMultiphaseFVM const * solver =
+        dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->targetRegionNames(),
+                                                                     solver->permeabilityModelNames() );
+    }
+    else if( dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver ) )
+    {
+      CompositionalMultiphaseHybridFVM const * solver =
+        dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->targetRegionNames(),
+                                                                     solver->permeabilityModelNames() );
+    }
+    else
+    {
+      MultiphasePoromechanicsSolver const * solver = dynamicCast< MultiphasePoromechanicsSolver const * >( m_flowSolver );
+      permeability =
+        elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
+                                                                     solver->getFlowSolver()->targetRegionNames(),
+                                                                     solver->getFlowSolver()->permeabilityModelNames() );
+    }
+
+    // compute the Peaceman index (if not read from XML)
+    PerforationData * const perforationData = subRegion.getPerforationData();
+    perforationData->computeWellTransmissibility( meshLevel, subRegion, permeability );
+  } );
+
+  // bind the stored reservoir views to the current domain
+  resetViews( domain );
+
+  // set the MGR recipe
   if( m_flowSolver->getLinearSolverParameters().mgr.strategy == LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseHybridFVM )
   {
     m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirHybridFVM;
@@ -181,11 +241,17 @@ void CompositionalMultiphaseReservoir::assembleCouplingTerms( real64 const GEOSX
                                                               CRSMatrixView< real64, globalIndex const > const & localMatrix,
                                                               arrayView1d< real64 > const & localRhs )
 {
+  GEOSX_MARK_FUNCTION;
+
+  using TAG = WellSolverBase::SubRegionTag;
+  using COFFSET = CompositionalMultiphaseWell::ColOffset;
+  using ROFFSET = CompositionalMultiphaseWell::RowOffset;
+
   MeshLevel const & meshLevel = domain.getMeshBody( 0 ).getMeshLevel( 0 );
   ElementRegionManager const & elemManager = meshLevel.getElemManager();
 
-  localIndex constexpr maxNumComp = MultiFluidBase::MAX_NUM_COMPONENTS;
-  localIndex constexpr maxNumDof  = maxNumComp + 1;
+  localIndex constexpr MAX_NUM_COMP = MultiFluidBase::MAX_NUM_COMPONENTS;
+  localIndex constexpr MAX_NUM_DOF  = MAX_NUM_COMP + 1;
 
   localIndex const NC      = m_wellSolver->numFluidComponents();
   localIndex const resNDOF = m_wellSolver->numDofPerResElement();
@@ -204,8 +270,7 @@ void CompositionalMultiphaseReservoir::assembleCouplingTerms( real64 const GEOSX
 
     // get the degrees of freedom
     string const wellDofKey = dofManager.getKey( m_wellSolver->wellElementDofName() );
-    arrayView1d< globalIndex const > const & wellElemDofNumber =
-      subRegion.getReference< array1d< globalIndex > >( wellDofKey );
+    arrayView1d< globalIndex const > const & wellElemDofNumber = subRegion.getReference< array1d< globalIndex > >( wellDofKey );
 
     // get well variables on perforations
     arrayView2d< real64 const > const & compPerfRate =
@@ -230,11 +295,11 @@ void CompositionalMultiphaseReservoir::assembleCouplingTerms( real64 const GEOSX
     forAll< parallelDevicePolicy<> >( perforationData->size(), [=] GEOSX_HOST_DEVICE ( localIndex const iperf )
     {
       // local working variables and arrays
-      stackArray1d< localIndex, 2 * maxNumComp > eqnRowIndices( 2 * NC );
-      stackArray1d< globalIndex, 2 * maxNumDof > dofColIndices( 2 * resNDOF );
+      stackArray1d< localIndex, 2 * MAX_NUM_COMP > eqnRowIndices( 2 * NC );
+      stackArray1d< globalIndex, 2 * MAX_NUM_DOF > dofColIndices( 2 * resNDOF );
 
-      stackArray1d< real64, 2 * maxNumComp > localPerf( 2 * NC );
-      stackArray2d< real64, 2 * maxNumComp * 2 * maxNumDof > localPerfJacobian( 2 * NC, 2 * resNDOF );
+      stackArray1d< real64, 2 * MAX_NUM_COMP > localPerf( 2 * NC );
+      stackArray2d< real64, 2 * MAX_NUM_COMP * 2 * MAX_NUM_DOF > localPerfJacobian( 2 * NC, 2 * resNDOF );
 
       // get the reservoir (sub)region and element indices
       localIndex const er  = resElementRegion[iperf];
@@ -248,39 +313,32 @@ void CompositionalMultiphaseReservoir::assembleCouplingTerms( real64 const GEOSX
 
       for( localIndex ic = 0; ic < NC; ++ic )
       {
-        eqnRowIndices[WellSolverBase::SubRegionTag::RES * NC + ic] = LvArray::integerConversion< localIndex >( resOffset - rankOffset )
-                                                                     + ic;
-        eqnRowIndices[WellSolverBase::SubRegionTag::WELL * NC + ic] = LvArray::integerConversion< localIndex >( wellElemOffset - rankOffset )
-                                                                      + CompositionalMultiphaseWell::RowOffset::MASSBAL + ic;
+        eqnRowIndices[TAG::RES *NC + ic]  = LvArray::integerConversion< localIndex >( resOffset - rankOffset ) + ic;
+        eqnRowIndices[TAG::WELL *NC + ic] = LvArray::integerConversion< localIndex >( wellElemOffset - rankOffset ) + ROFFSET::MASSBAL + ic;
       }
       for( localIndex jdof = 0; jdof < resNDOF; ++jdof )
       {
-        dofColIndices[WellSolverBase::SubRegionTag::RES * resNDOF + jdof] = resOffset + jdof;
-        dofColIndices[WellSolverBase::SubRegionTag::WELL * resNDOF + jdof] =
-          wellElemOffset + CompositionalMultiphaseWell::ColOffset::DPRES + jdof;
+        dofColIndices[TAG::RES *resNDOF + jdof]  = resOffset + jdof;
+        dofColIndices[TAG::WELL *resNDOF + jdof] = wellElemOffset + COFFSET::DPRES + jdof;
       }
 
       // populate local flux vector and derivatives
       for( localIndex ic = 0; ic < NC; ++ic )
       {
-        localPerf[WellSolverBase::SubRegionTag::RES * NC + ic] = dt * compPerfRate[iperf][ic];
-        localPerf[WellSolverBase::SubRegionTag::WELL * NC + ic] = -dt * compPerfRate[iperf][ic];
+        localPerf[TAG::RES *NC + ic]  =  dt * compPerfRate[iperf][ic];
+        localPerf[TAG::WELL *NC + ic] = -dt * compPerfRate[iperf][ic];
 
         for( localIndex ke = 0; ke < 2; ++ke )
         {
           localIndex const localDofIndexPres = ke * resNDOF;
-          localPerfJacobian[WellSolverBase::SubRegionTag::RES * NC + ic][localDofIndexPres] =
-            dt * dCompPerfRate_dPres[iperf][ke][ic];
-          localPerfJacobian[WellSolverBase::SubRegionTag::WELL * NC + ic][localDofIndexPres] =
-            -dt * dCompPerfRate_dPres[iperf][ke][ic];
+          localPerfJacobian[TAG::RES *NC + ic][localDofIndexPres]  =  dt * dCompPerfRate_dPres[iperf][ke][ic];
+          localPerfJacobian[TAG::WELL *NC + ic][localDofIndexPres] = -dt * dCompPerfRate_dPres[iperf][ke][ic];
 
           for( localIndex jc = 0; jc < NC; ++jc )
           {
             localIndex const localDofIndexComp = localDofIndexPres + jc + 1;
-            localPerfJacobian[WellSolverBase::SubRegionTag::RES * NC + ic][localDofIndexComp] =
-              dt * dCompPerfRate_dComp[iperf][ke][ic][jc];
-            localPerfJacobian[WellSolverBase::SubRegionTag::WELL * NC + ic][localDofIndexComp] =
-              -dt * dCompPerfRate_dComp[iperf][ke][ic][jc];
+            localPerfJacobian[TAG::RES *NC + ic][localDofIndexComp]  =  dt * dCompPerfRate_dComp[iperf][ke][ic][jc];
+            localPerfJacobian[TAG::WELL *NC + ic][localDofIndexComp] = -dt * dCompPerfRate_dComp[iperf][ke][ic][jc];
           }
         }
       }

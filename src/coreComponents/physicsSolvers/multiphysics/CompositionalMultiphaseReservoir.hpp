@@ -86,6 +86,8 @@ public:
 
 protected:
 
+  virtual void postProcessInput() override;
+
   virtual void initializePostInitialConditionsPreSubGroups() override;
 
 };

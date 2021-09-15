@@ -59,38 +59,7 @@ void ReservoirSolverBase::postProcessInput()
 
   m_flowSolver = &this->getParent().getGroup< SolverBase >( m_flowSolverName );
   m_wellSolver = &this->getParent().getGroup< WellSolverBase >( m_wellSolverName );
-
-  m_wellSolver->setFlowSolverName( m_flowSolverName );
 }
-
-void ReservoirSolverBase::initializePostInitialConditionsPreSubGroups()
-{
-  SolverBase::initializePostInitialConditionsPreSubGroups( );
-
-  DomainPartition & domain = this->getGroupByPath< DomainPartition >( "/Problem/domain" );
-
-  MeshLevel & meshLevel = domain.getMeshBody( 0 ).getMeshLevel( 0 );
-  ElementRegionManager & elemManager = meshLevel.getElemManager();
-
-  // loop over the wells
-  elemManager.forElementSubRegions< WellElementSubRegion >( [&]( WellElementSubRegion & subRegion )
-  {
-    array1d< array1d< arrayView3d< real64 const > > > const permeability =
-      elemManager.constructMaterialArrayViewAccessor< real64, 3 >( PermeabilityBase::viewKeyStruct::permeabilityString(),
-                                                                   m_flowSolver->targetRegionNames(),
-                                                                   m_flowSolver->permeabilityModelNames() );
-
-
-    PerforationData * const perforationData = subRegion.getPerforationData();
-
-    // compute the Peaceman index (if not read from XML)
-    perforationData->computeWellTransmissibility( meshLevel, subRegion, permeability );
-  } );
-
-  // bind the stored reservoir views to the current domain
-  resetViews( domain );
-}
-
 
 real64 ReservoirSolverBase::solverStep( real64 const & time_n,
                                         real64 const & dt,
