@@ -36,7 +36,6 @@ SinglePhaseReservoir::SinglePhaseReservoir( const string & name,
                                             Group * const parent ):
   ReservoirSolverBase( name, parent )
 {
-  m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirFVM;
 }
 
 SinglePhaseReservoir::~SinglePhaseReservoir()
@@ -63,15 +62,49 @@ void SinglePhaseReservoir::postProcessInput()
                                 << " cannot be used with " << catalogName(),
                   InputError );
 
-  if( dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver ) ||
-      dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver ) )
+  if( dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( m_flowSolver ) )
   {
+    // set flow solver name
     m_wellSolver->setFlowSolverName( m_flowSolverName );
+
+    // set MGR recipe
+    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirFVM;
+  }
+  else if ( dynamicCast< SinglePhaseHybridFVM const * >( m_flowSolver ) )
+  {
+    // set flow solver name 
+    m_wellSolver->setFlowSolverName( m_flowSolverName );
+
+    // set MGR recipe
+    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirHybridFVM;    
   }
   else
   {
     SinglePhasePoromechanicsSolver const * solver = dynamicCast< SinglePhasePoromechanicsSolver const * >( m_flowSolver );
+    
+    // set flow solver name         
     m_wellSolver->setFlowSolverName( solver->getFlowSolver()->getName() );
+
+    // set the MGR recipe
+    if( dynamicCast< SinglePhaseFVM< SinglePhaseBase > const * >( solver->getFlowSolver() ) )
+    {
+      m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirFVMPoromechanics;
+    }
+    else if( dynamicCast< SinglePhaseHybridFVM const * >( solver->getFlowSolver() ) )
+    {
+      m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirHybridFVMPoromechanics;
+    }
+    else
+    {
+      GEOSX_ERROR( catalogName() << " " << getName()
+		   << ": SinglePhaseFVM and SinglePhaseHybridFVM are the only single-phase flow solvers that can be combined with the pair (wells + poromechanics)" );
+    }
+    m_linearSolverParameters.get().mgr.separateComponents = true;
+    m_linearSolverParameters.get().mgr.displacementFieldName = keys::TotalDisplacement;
+    m_linearSolverParameters.get().dofsPerNode = 3;
+    
+    // to overcome the sign issue in the mechanics Newton update, we need this multiplier
+    m_scalingFactorMultiplier = -1;
   }
 }
 
@@ -123,12 +156,6 @@ void SinglePhaseReservoir::initializePostInitialConditionsPreSubGroups()
 
   // bind the stored reservoir views to the current domain
   resetViews( domain );
-
-  // set the MGR recipe
-  if( m_flowSolver->getLinearSolverParameters().mgr.strategy == LinearSolverParameters::MGR::StrategyType::singlePhaseHybridFVM )
-  {
-    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::singlePhaseReservoirHybridFVM;
-  }
 }
 
 void SinglePhaseReservoir::setupSystem( DomainPartition & domain,

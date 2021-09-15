@@ -35,7 +35,8 @@ ReservoirSolverBase::ReservoirSolverBase( const string & name,
                                           Group * const parent ):
   SolverBase( name, parent ),
   m_flowSolverName(),
-  m_wellSolverName()
+  m_wellSolverName(),
+  m_scalingFactorMultiplier( 1 )
 {
   registerWrapper( viewKeyStruct::flowSolverNameString(), &m_flowSolverName ).
     setInputFlag( InputFlags::REQUIRED ).
@@ -321,7 +322,7 @@ bool ReservoirSolverBase::checkSystemSolution( DomainPartition const & domain,
                                                arrayView1d< real64 const > const & localSolution,
                                                real64 const scalingFactor )
 {
-  bool const validReservoirSolution = m_flowSolver->checkSystemSolution( domain, dofManager, localSolution, scalingFactor );
+  bool const validReservoirSolution = m_flowSolver->checkSystemSolution( domain, dofManager, localSolution, m_scalingFactorMultiplier * scalingFactor );
   bool const validWellSolution      = m_wellSolver->checkSystemSolution( domain, dofManager, localSolution, scalingFactor );
 
   return ( validReservoirSolution && validWellSolution );
@@ -333,7 +334,7 @@ void ReservoirSolverBase::applySystemSolution( DofManager const & dofManager,
                                                DomainPartition & domain )
 {
   // update the reservoir variables
-  m_flowSolver->applySystemSolution( dofManager, localSolution, scalingFactor, domain );
+  m_flowSolver->applySystemSolution( dofManager, localSolution, m_scalingFactorMultiplier * scalingFactor, domain );
   // update the well variables
   m_wellSolver->applySystemSolution( dofManager, localSolution, scalingFactor, domain );
 }

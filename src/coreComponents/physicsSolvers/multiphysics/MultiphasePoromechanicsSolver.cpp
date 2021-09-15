@@ -273,6 +273,24 @@ void MultiphasePoromechanicsSolver::solveSystem( DofManager const & dofManager,
   SolverBase::solveSystem( dofManager, matrix, rhs, solution );
 }
 
+bool MultiphasePoromechanicsSolver::checkSystemSolution( DomainPartition const & domain,
+							  DofManager const & dofManager,
+							  arrayView1d< real64 const > const & localSolution,
+							  real64 const scalingFactor )
+{
+  bool const validSolidSolution = m_solidSolver->checkSystemSolution( domain, dofManager, localSolution, scalingFactor );
+  bool const validFlowSolution  = m_flowSolver->checkSystemSolution( domain, dofManager, localSolution, -scalingFactor );
+
+  return ( validSolidSolution && validFlowSolution );
+}
+
+real64 MultiphasePoromechanicsSolver::scalingForSystemSolution( DomainPartition const & domain,
+								 DofManager const & dofManager,
+								 arrayView1d< real64 const > const & localSolution )
+{
+  return m_flowSolver->scalingForSystemSolution( domain, dofManager, localSolution );
+}
+
 void MultiphasePoromechanicsSolver::applySystemSolution( DofManager const & dofManager,
                                                          arrayView1d< real64 const > const & localSolution,
                                                          real64 const scalingFactor,

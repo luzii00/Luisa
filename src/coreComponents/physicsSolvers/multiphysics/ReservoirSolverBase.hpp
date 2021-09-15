@@ -215,6 +215,9 @@ protected:
   /// pointer to the well sub-solver
   WellSolverBase * m_wellSolver;
 
+  /// temporary multiplier to circumvent the sign issue in the mechanical Newton update 
+  localIndex m_scalingFactorMultiplier; 
+  
 };
 
 } /* namespace geosx */

@@ -249,7 +249,7 @@ real64 SinglePhasePoromechanicsSolver::calculateResidualNorm( DomainPartition co
                                                               arrayView1d< real64 const > const & localRhs )
 {
   // compute norm of momentum balance residual equations
-  real64 const momementumResidualNorm = m_solidSolver->calculateResidualNorm( domain, dofManager, localRhs );
+  real64 const momentumResidualNorm = m_solidSolver->calculateResidualNorm( domain, dofManager, localRhs );
 
   // compute norm of mass balance residual equations
   real64 const massResidualNorm = m_flowSolver->calculateResidualNorm( domain, dofManager, localRhs );
@@ -257,11 +257,11 @@ real64 SinglePhasePoromechanicsSolver::calculateResidualNorm( DomainPartition co
   if( getLogLevel() >= 1 && logger::internal::rank==0 )
   {
     char output[200] = {0};
-    sprintf( output, "    ( Rsolid, Rfluid ) = ( %4.2e, %4.2e )", momementumResidualNorm, massResidualNorm );
+    sprintf( output, "    ( Rsolid, Rfluid ) = ( %4.2e, %4.2e )", momentumResidualNorm, massResidualNorm );
     std::cout << output << std::endl;
   }
 
-  return sqrt( momementumResidualNorm * momementumResidualNorm + massResidualNorm * massResidualNorm );
+  return sqrt( momentumResidualNorm * momentumResidualNorm + massResidualNorm * massResidualNorm );
 }
 
 void SinglePhasePoromechanicsSolver::createPreconditioner()
@@ -298,6 +298,25 @@ void SinglePhasePoromechanicsSolver::solveSystem( DofManager const & dofManager,
 {
   solution.zero();
   SolverBase::solveSystem( dofManager, matrix, rhs, solution );
+}
+
+bool SinglePhasePoromechanicsSolver::checkSystemSolution( DomainPartition const & domain,
+							  DofManager const & dofManager,
+							  arrayView1d< real64 const > const & localSolution,
+							  real64 const scalingFactor )
+{
+  bool const validSolidSolution = m_solidSolver->checkSystemSolution( domain, dofManager, localSolution, scalingFactor );
+  bool const validFlowSolution  = m_flowSolver->checkSystemSolution( domain, dofManager, localSolution, -scalingFactor );
+
+  return ( validSolidSolution && validFlowSolution );
+}
+
+
+real64 SinglePhasePoromechanicsSolver::scalingForSystemSolution( DomainPartition const & domain,
+								 DofManager const & dofManager,
+								 arrayView1d< real64 const > const & localSolution )
+{
+  return m_flowSolver->scalingForSystemSolution( domain, dofManager, localSolution );
 }
 
 void SinglePhasePoromechanicsSolver::applySystemSolution( DofManager const & dofManager,

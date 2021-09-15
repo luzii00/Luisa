@@ -65,15 +65,49 @@ void CompositionalMultiphaseReservoir::postProcessInput()
                                 << " cannot be used with " << catalogName(),
                   InputError );
 
-  if( dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver ) ||
-      dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver ) )
+  if( dynamicCast< CompositionalMultiphaseFVM const * >( m_flowSolver ) )
   {
+    // set flow solver name
     m_wellSolver->setFlowSolverName( m_flowSolverName );
+
+    // set MGR recipe
+    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirFVM;
+  }
+  else if( dynamicCast< CompositionalMultiphaseHybridFVM const * >( m_flowSolver ) )
+  {
+    // set flow solver name
+    m_wellSolver->setFlowSolverName( m_flowSolverName );
+
+    // set MGR recipe
+    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirHybridFVM;
   }
   else
   {
     MultiphasePoromechanicsSolver const * solver = dynamicCast< MultiphasePoromechanicsSolver const * >( m_flowSolver );
+    
+    // set flow solver name
     m_wellSolver->setFlowSolverName( solver->getFlowSolver()->getName() );
+
+    // set the MGR recipe
+    if( dynamicCast< CompositionalMultiphaseFVM const * >( solver->getFlowSolver() ) )
+    {
+      m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirFVMPoromechanics;
+    }
+    else if( dynamicCast< CompositionalMultiphaseHybridFVM const * >( solver->getFlowSolver() ) )
+    {
+      m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirHybridFVMPoromechanics;
+    }
+    else
+    {
+      GEOSX_ERROR( catalogName() << " " << getName()
+		   << ": CompositionalMultiphaseFVM and CompositionalMultiphaseHybridFVM are the only multiphase flow solvers that can be combined with the pair (wells + poromechanics)" );
+    }
+    m_linearSolverParameters.get().mgr.separateComponents = true;
+    m_linearSolverParameters.get().mgr.displacementFieldName = keys::TotalDisplacement;
+    m_linearSolverParameters.get().dofsPerNode = 3;
+    
+    // to overcome the sign issue in the mechanics Newton update, we need this multiplier
+    m_scalingFactorMultiplier = -1;
   }
 
 }
@@ -126,12 +160,6 @@ void CompositionalMultiphaseReservoir::initializePostInitialConditionsPreSubGrou
 
   // bind the stored reservoir views to the current domain
   resetViews( domain );
-
-  // set the MGR recipe
-  if( m_flowSolver->getLinearSolverParameters().mgr.strategy == LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseHybridFVM )
-  {
-    m_linearSolverParameters.get().mgr.strategy = LinearSolverParameters::MGR::StrategyType::compositionalMultiphaseReservoirHybridFVM;
-  }
 }
 
 void CompositionalMultiphaseReservoir::addCouplingSparsityPattern( DomainPartition const & domain,
@@ -150,8 +178,8 @@ void CompositionalMultiphaseReservoir::addCouplingSparsityPattern( DomainPartiti
   localIndex const resNDOF = m_wellSolver->numDofPerResElement();
   localIndex const wellNDOF = m_wellSolver->numDofPerWellElement();
 
-  localIndex constexpr maxNumComp = MultiFluidBase::MAX_NUM_COMPONENTS;
-  localIndex constexpr maxNumDof  = maxNumComp + 1;
+  localIndex constexpr MAX_NUM_COMP = MultiFluidBase::MAX_NUM_COMPONENTS;
+  localIndex constexpr MAX_NUM_DOF  = MAX_NUM_COMP + 1;
 
   string const wellDofKey = dofManager.getKey( m_wellSolver->wellElementDofName() );
   string const resDofKey  = dofManager.getKey( m_wellSolver->resElementDofName() );
@@ -186,15 +214,15 @@ void CompositionalMultiphaseReservoir::addCouplingSparsityPattern( DomainPartiti
     // This will fill J_WR, and J_RW
     forAll< serialPolicy >( perforationData->size(), [=] ( localIndex const iperf )
     {
-      stackArray1d< globalIndex, maxNumDof > eqnRowIndicesRes( resNDOF );
-      stackArray1d< globalIndex, maxNumDof > eqnRowIndicesWell( wellNDOF );
-      stackArray1d< globalIndex, maxNumDof > dofColIndicesRes( resNDOF );
-      stackArray1d< globalIndex, maxNumDof > dofColIndicesWell( wellNDOF );
+      stackArray1d< globalIndex, MAX_NUM_DOF > eqnRowIndicesRes( resNDOF );
+      stackArray1d< globalIndex, MAX_NUM_DOF > eqnRowIndicesWell( wellNDOF );
+      stackArray1d< globalIndex, MAX_NUM_DOF > dofColIndicesRes( resNDOF );
+      stackArray1d< globalIndex, MAX_NUM_DOF > dofColIndicesWell( wellNDOF );
 
       // get the reservoir (sub)region and element indices
-      localIndex const er = resElementRegion[iperf];
+      localIndex const er  = resElementRegion[iperf];
       localIndex const esr = resElementSubRegion[iperf];
-      localIndex const ei = resElementIndex[iperf];
+      localIndex const ei  = resElementIndex[iperf];
       localIndex const iwelem = perfWellElemIndex[iperf];
 
       for( localIndex idof = 0; idof < resNDOF; ++idof )

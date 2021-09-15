@@ -208,7 +208,7 @@ struct LinearSolverParameters
     enum class StrategyType : integer
     {
       invalid,                                   ///< default value, to ensure solver sets something
-      singlePhaseReservoirFVM,                   ///< fininte volume single-phase flow with wells
+      singlePhaseReservoirFVM,                   ///< finite volume single-phase flow with wells
       singlePhaseHybridFVM,                      ///< hybrid finite volume single-phase flow
       singlePhaseReservoirHybridFVM,             ///< hybrid finite volume single-phase flow with wells
       singlePhasePoromechanics,                  ///< single phase poromechanics with finite volume single phase flow
