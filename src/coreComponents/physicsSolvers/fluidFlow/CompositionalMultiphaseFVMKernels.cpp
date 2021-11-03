@@ -639,9 +639,9 @@ FluxKernel::
     }
 
     // Apply equation/variable change transformation(s)
-    stackArray1d< real64, MAX_STENCIL_SIZE * NDOF > work( stencilSize * NDOF );
-    shiftBlockRowsAheadByOneAndReplaceFirstRowWithColumnSum( NC, NDOF*stencilSize, numFluxElems, localFluxJacobian, work );
-    shiftBlockElementsAheadByOneAndReplaceFirstElementWithSum( NC, numFluxElems, localFlux );
+    //stackArray1d< real64, MAX_STENCIL_SIZE * NDOF > work( stencilSize * NDOF );
+    //shiftBlockRowsAheadByOneAndReplaceFirstRowWithColumnSum( NC, NDOF*stencilSize, numFluxElems, localFluxJacobian, work );
+    //shiftBlockElementsAheadByOneAndReplaceFirstElementWithSum( NC, numFluxElems, localFlux );
 
     // Add to residual/jacobian
     for( localIndex i = 0; i < numFluxElems; ++i )

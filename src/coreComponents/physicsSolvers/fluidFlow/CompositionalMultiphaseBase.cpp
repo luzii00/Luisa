@@ -953,16 +953,19 @@ void CompositionalMultiphaseBase::applySourceFluxBC( real64 const time,
         return;
       }
 
-      // for all "fluid components", we add the value to the total mass balance equation
-      globalIndex const totalMassBalanceRow = dofNumber[ei] - rankOffset;
-      localRhs[totalMassBalanceRow] += rhsContributionArrayView[a];
+      globalIndex const compMassBalanceRow = dofNumber[ei] - rankOffset + fluidComponentId;
+      localRhs[compMassBalanceRow] += rhsContributionArrayView[a];
+      
+      // // for all "fluid components", we add the value to the total mass balance equation
+      // globalIndex const totalMassBalanceRow = dofNumber[ei] - rankOffset;
+      // localRhs[totalMassBalanceRow] += rhsContributionArrayView[a];
 
-      // for all "fluid components" except the last one, we add the value to the component mass balance equation (shifted appropriately)
-      if( fluidComponentId < numFluidComponents - 1 )
-      {
-        globalIndex const compMassBalanceRow = totalMassBalanceRow + fluidComponentId + 1; // component mass bal equations are shifted
-        localRhs[compMassBalanceRow] += rhsContributionArrayView[a];
-      }
+      // // for all "fluid components" except the last one, we add the value to the component mass balance equation (shifted appropriately)
+      // if( fluidComponentId < numFluidComponents - 1 )
+      // {
+      //   globalIndex const compMassBalanceRow = totalMassBalanceRow + fluidComponentId + 1; // component mass bal equations are shifted
+      //   localRhs[compMassBalanceRow] += rhsContributionArrayView[a];
+      // }
     } );
 
   } );
