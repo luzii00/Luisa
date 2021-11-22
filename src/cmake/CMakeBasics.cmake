@@ -39,29 +39,24 @@
 ################################
 # Setup build options and their default values
 ################################
-include("${CMAKE_CURRENT_LIST_DIR}/geosxOptions.cmake")
+include( "${CMAKE_CURRENT_LIST_DIR}/GeosxOptions.cmake" )
 
 ################################
 # Setup toolkit generate targets
 ################################
 #include(cmake/SetupShroud.cmake)
 
-include("${CMAKE_CURRENT_LIST_DIR}/thirdparty/SetupGeosxThirdParty.cmake")
+include( "${CMAKE_CURRENT_LIST_DIR}/thirdparty/SetupGeosxThirdParty.cmake" )
 #include(components/cmake/thirdparty/SetupGeosxThirdParty.cmake)
 
-include(cmake/GeosxMacros.cmake)
+include( cmake/GeosxMacros.cmake )
 
-if(NOT CMAKE_CONFIGURATION_TYPES)
+if( NOT CMAKE_CONFIGURATION_TYPES )
     ######################################################
     # Add define we can use when debug builds are enabled
     ######################################################
-    if( CMAKE_BUILD_TYPE MATCHES "(Debug|RelWithDebInfo)" )
-        add_definitions(-DGEOSX_DEBUG)
+    if ( CMAKE_BUILD_TYPE MATCHES "Debug" )
+        set( ENABLE_ARRAY_BOUNDS_CHECK ON CACHE BOOL "" FORCE )
     endif()
-else ()
-    set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS
-      $<$<CONFIG:Debug>:GEOSX_DEBUG>
-      $<$<CONFIG:RelWithDebInfo>:GEOSX_DEBUG>
-    )
 endif()
 

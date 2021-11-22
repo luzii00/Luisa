@@ -1,0 +1,5 @@
+matplotlib
+numpy
+h5py
+mpmath
+docutils<0.18

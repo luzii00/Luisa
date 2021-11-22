@@ -1,0 +1,97 @@
+/**
+ * @file GeosxConfig.hpp
+ *
+ * GEOSX build configuration file.
+ * Contains a CMake-generated list of macros that define a particular build configuration.
+ */
+
+#ifndef GEOSX_COMMON_CONFIG_HPP
+#define GEOSX_COMMON_CONFIG_HPP
+
+/// Enables floating point exceptions
+#cmakedefine GEOSX_USE_FPE
+
+/// Enables bounds check in LvArray classes (CMake option ARRAY_BOUNDS_CHECK)
+#cmakedefine GEOSX_USE_ARRAY_BOUNDS_CHECK
+
+/// Enables use of Caliper (CMake option ENABLE_CALIPER)
+#cmakedefine GEOSX_USE_CALIPER
+
+/// Enables use of CHAI (CMake option ENABLE_CHAI)
+#cmakedefine GEOSX_USE_CHAI
+
+/// Enables use of Mathpresso library (CMake option ENABLE_MATHPRESSO)
+#cmakedefine GEOSX_USE_MATHPRESSO
+
+/// Enables use of MPI (CMake option ENABLE_MPI)
+#cmakedefine GEOSX_USE_MPI
+
+/// Enables use of OpenMP (CMake option ENABLE_OPENMP)
+#cmakedefine GEOSX_USE_OPENMP
+
+/// Enables use of CUDA (CMake option ENABLE_CUDA)
+#cmakedefine GEOSX_USE_CUDA
+
+/// Enables use of PVTPackage (CMake option ENABLE_PVTPackage)
+#cmakedefine GEOSX_USE_PVTPackage
+
+/// Enables use of Python (CMake option ENABLE_PYTHON)
+#cmakedefine GEOSX_USE_PYGEOSX
+
+/// Enables use of RAJA (CMake option ENABLE_RAJA)
+#cmakedefine GEOSX_USE_RAJA
+
+/// Enables use of sys/time.h based timers (CMake option ENABLE_TIMERS)
+#cmakedefine GEOSX_USE_TIMERS
+
+/// Enables use of additional debugging interface for TotalView (Cmake option ENABLE_TOTALVIEW_OUTPUT)
+#cmakedefine GEOSX_USE_TOTALVIEW_OUTPUT
+
+/// Enables use of Intel MKL (CMake option ENABLE_MKL)
+#cmakedefine GEOSX_USE_MKL
+
+/// Enables use of Trilinos library (CMake option ENABLE_TRILINOS)
+#cmakedefine GEOSX_USE_TRILINOS
+
+/// Enables use of Hypre library (CMake option ENABLE_HYPRE)
+#cmakedefine GEOSX_USE_HYPRE
+
+/// Macro defined when using cuda in HYPRE  (CMake option ENABLE_HYPRE_CUDA)
+#cmakedefine GEOSX_USE_HYPRE_CUDA
+
+/// Enables use of PETSc library (CMake option ENABLE_PETSC)
+#cmakedefine GEOSX_USE_PETSC
+
+/// Choice of global linear algebra interface (CMake option GEOSX_LA_INTERFACE)
+#cmakedefine GEOSX_LA_INTERFACE @GEOSX_LA_INTERFACE@
+/// Macro defined when Trilinos interface is selected
+#cmakedefine GEOSX_LA_INTERFACE_TRILINOS
+/// Macro defined when Hypre interface is selected
+#cmakedefine GEOSX_LA_INTERFACE_HYPRE
+/// Macro defined when PETSc interface is selected
+#cmakedefine GEOSX_LA_INTERFACE_PETSC
+
+
+/// Platform-dependent mangling of fortran function names (CMake option FORTRAN_MANGLE_NO_UNDERSCORE)
+#cmakedefine FORTRAN_MANGLE_NO_UNDERSCORE
+
+/// USE OF SEPARATION COEFFICIENT IN FRACTURE FLOW
+#cmakedefine GEOSX_USE_SEPARATION_COEFFICIENT
+
+/// CMake option CMAKE_BUILD_TYPE
+#cmakedefine GEOSX_CMAKE_BUILD_TYPE @GEOSX_CMAKE_BUILD_TYPE@
+
+/// The type that localIndex will be aliased to.
+#define GEOSX_LOCALINDEX_TYPE @GEOSX_LOCALINDEX_TYPE@
+
+/// An integer flag representing the type that localIndex will be aliased to.
+#define GEOSX_LOCALINDEX_TYPE_FLAG @GEOSX_LOCALINDEX_TYPE_FLAG@
+
+/// The type that globalIndex will be aliased to.
+#define GEOSX_GLOBALINDEX_TYPE @GEOSX_GLOBALINDEX_TYPE@
+
+/// An integer flag representing the type that globalIndex will be aliased to.
+#define GEOSX_GLOBALINDEX_TYPE_FLAG @GEOSX_GLOBALINDEX_TYPE_FLAG@
+
+#endif  /* GEOSX_CONFIG_HPP */
+

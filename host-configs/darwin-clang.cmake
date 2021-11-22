@@ -1,53 +1,37 @@
-
 site_name(HOST_NAME)
 set(CONFIG_NAME "${HOST_NAME}-darwin-x86_64-clang@apple-mp" CACHE PATH "") 
-message( "CONFIG_NAME = ${CONFIG_NAME}" )
-
-
-#set(TPL_DIR "${CMAKE_SOURCE_DIR}/../../axom_tpl" CACHE PATH "" )
-#message("TPL_DIR = ${TPL_DIR}")
-#include("${TPL_DIR}/${CONFIG_NAME}.cmake")
-
-
-
-#set(ATK_DIR "${CMAKE_SOURCE_DIR}/../../axom/install-${CONFIG_NAME}-debug" CACHE PATH "")
-#set(ATK_CMAKE "${ATK_DIR}/lib/cmake" CACHE PATH "")
-
-set( GEOSX_TPL_ROOT_DIR "../../thirdPartyLibs/" CACHE PATH "" )
+message("CONFIG_NAME = ${CONFIG_NAME}")
 
 set(CMAKE_C_COMPILER "/usr/bin/clang" CACHE PATH "")
 set(CMAKE_CXX_COMPILER "/usr/bin/clang++" CACHE PATH "")
 set(ENABLE_FORTRAN OFF CACHE BOOL "" FORCE)
+
 set(ENABLE_MPI ON CACHE PATH "")
-set(MPI_C_COMPILER "/opt/local/bin/mpicc-openmpi-clang" CACHE PATH "")
-set(MPI_CXX_COMPILER "/opt/local/bin/mpicxx-openmpi-clang" CACHE PATH "")
-set(MPI_Fortran_COMPILER "/opt/local/bin/mpifort-openmpi-clang" CACHE PATH "")
-set(MPIEXEC "mpirun-openmpi-gcc7" CACHE PATH "")
+set(MPI_C_COMPILER "/usr/local/bin/mpicc" CACHE PATH "")
+set(MPI_CXX_COMPILER "/usr/local/bin/mpicxx" CACHE PATH "")
+set(MPIEXEC "/usr/local/bin/mpirun" CACHE PATH "")
 
+set(ENABLE_GTEST_DEATH_TESTS ON CACHE BOOL "" FORCE)
 
-include("${CMAKE_CURRENT_LIST_DIR}/hc-defaults.cmake")
+set(ENABLE_PAMELA ON CACHE BOOL "" FORCE)
+set(ENABLE_PVTPackage ON CACHE BOOL "" FORCE)
 
+set(CUDA_ENABLED "OFF" CACHE PATH "" FORCE)
+set(ENABLE_OPENMP "OFF" CACHE PATH "" FORCE)
 
-set(GEOSX_LINK_PREPEND_FLAG "-Wl,-force_load" CACHE PATH "" FORCE)
-set(GEOSX_LINK_POSTPEND_FLAG "" CACHE PATH "" FORCE)
+set(ENABLE_CALIPER "OFF" CACHE PATH "" FORCE )
 
-#set(GEOSX_LINK_PREPEND_FLAG  "-Wl,--whole-archive"    CACHE PATH "" FORCE)
-#set(GEOSX_LINK_POSTPEND_FLAG "-Wl,--no-whole-archive" CACHE PATH "" FORCE)
+set( BLAS_LIBRARIES /usr/local/opt/openblas/lib/libblas.dylib CACHE PATH "" FORCE )
+set( LAPACK_LIBRARIES /usr/local/opt/openblas/lib/liblapack.dylib CACHE PATH "" FORCE )
 
-#######################################
-# RAJA/CHAI SETUP
-#######################################
-#set( CHAI_DIR "${CMAKE_SOURCE_DIR}/../../chai" CACHE PATH "")
-#set( RAJA_DIR "${CMAKE_SOURCE_DIR}/../../raja" CACHE PATH "")
-option( BUILD_LOCAL_CHAI "Use the local mirrored CHAI" OFF )
-option( BUILD_LOCAL_RAJA "Use the local mirrored RAJA" OFF )
+set(ENABLE_DOXYGEN OFF CACHE BOOL "" FORCE)
 
-option( RAJA_ENABLE_TBB "" OFF)
-option( ENABLE_CALIPER "Enables CALIPER" OFF )
+#set( DOXYGEN_EXECUTABLE /usr/local/bin/doxygen CACHE PATH "" FORCE )
+#set( SPHINX_EXECUTABLE /usr/local/bin/sphinx-build CACHE PATH "" FORCE )
 
-set(CUDA_ENABLED      "OFF"       CACHE PATH "" FORCE)
-set(ENABLE_OPENMP     "OFF"        CACHE PATH "" FORCE)
-set(CHAI_BUILD_TYPE   "cpu-no-rm" CACHE PATH "" FORCE)
-set(CHAI_ARGS         ""          CACHE PATH "" FORCE)
-set(CALIPER_INSTALL   ""          CACHE PATH "" FORCE)
-set(RAJA_ENABLE_TESTS "OFF"       CACHE PATH "" FORCE)
+set(GEOSX_TPL_DIR "/usr/local/GEOSX/GEOSX_TPL" CACHE PATH "" FORCE )
+if(NOT ( EXISTS "${GEOSX_TPL_DIR}" AND IS_DIRECTORY "${GEOSX_TPL_DIR}" ) )
+    set(GEOSX_TPL_DIR "../../../thirdPartyLibs/install-darwin-clang-release" CACHE PATH "" FORCE )
+endif()
+
+include(${CMAKE_CURRENT_LIST_DIR}/tpls.cmake)
