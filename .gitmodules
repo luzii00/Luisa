@@ -1,27 +1,22 @@
-[submodule "src/components/cxx-utilities"]
-	path = src/components/cxx-utilities
-	url = ../cxx-utilities.git
-[submodule "src/components/PhysicsSolverPackage1"]
-	path = src/components/PhysicsSolverPackage1
-	url = ../physicssolverpackage1.git
-	branch = master
-[submodule "src/components/PhysicsSolverPackage2"]
-	path = src/components/PhysicsSolverPackage2
-	url = ../physicssolverpackage2.git
-	branch = master
-[submodule "src/components/MeshRefinementPackage"]
-	path = src/components/MeshRefinementPackage
-	url = ../meshrefinementpackage.git
-	branch = master
-[submodule "src/components/ConstitutivePackage"]
-	path = src/components/ConstitutivePackage
-	url = ../constitutivepackage1.git
-	branch = master
-[submodule "src/components/ReservoirSimulationPackage"]
-	path = src/components/ReservoirSimulationPackage
-	url = ../reservoirsimulationpackage.git
-	branch = master
-[submodule "thirdPartyLibs/tpl_mirror"]
-	path = thirdPartyLibs/tpl_mirror
-	url = ../tpl_mirror.git
-	branch = master
+[submodule "src/coreComponents/LvArray"]
+	path = src/coreComponents/LvArray
+	url = ../LvArray.git
+[submodule "src/cmake/blt"]
+	path = src/cmake/blt
+	url = ../../LLNL/blt.git
+[submodule "src/externalComponents/PVTPackage"]
+	path = src/coreComponents/constitutive/PVTPackage
+	url = ../PVTPackage.git
+[submodule "integratedTests"]
+	path = integratedTests
+	url = ../integratedTests.git
+[submodule "src/externalComponents/PAMELA"]
+	path = src/coreComponents/mesh/PAMELA
+	url = ../PAMELA.git
+	shallow = true
+[submodule "src/coreComponents/fileIO/coupling/hdf5_interface"]
+	path = src/coreComponents/fileIO/coupling/hdf5_interface
+	url = ../hdf5_interface.git
+[submodule "src/coreComponents/physicsSolvers/GEOSX_PTP"]
+	path = src/coreComponents/physicsSolvers/GEOSX_PTP
+	url = ../GEOSX_PTP.git

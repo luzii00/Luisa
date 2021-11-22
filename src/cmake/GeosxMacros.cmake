@@ -47,11 +47,10 @@ macro(geosx_add_code_checks)
         endforeach()
     endif()
 
-    blt_add_code_checks( PREFIX    ${arg_PREFIX}
-                         SOURCES   ${_sources}
-                        UNCRUSTIFY_CFG_FILE ${PROJECT_SOURCE_DIR}/uncrustify.cfg)
-#                         UNCRUSTIFY_CFG_FILE ${arg_UNCRUSTIFY_CFG_FILE}
-#                        )
-
+    if (ENABLE_UNCRUSTIFY)
+        blt_add_code_checks( PREFIX    ${arg_PREFIX}
+                             SOURCES   ${_sources}
+                             UNCRUSTIFY_CFG_FILE ${PROJECT_SOURCE_DIR}/uncrustify.cfg )
+    endif()
 
 endmacro(geosx_add_code_checks)
