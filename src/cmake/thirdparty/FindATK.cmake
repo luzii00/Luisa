@@ -49,48 +49,45 @@
 #  
 #  If found, the conduit CMake targets will also be imported
 
-# first Check for ATK_DIR
+if (NOT EXISTS ${ATK_DIR})
+    message(STATUS "Using axom from thirdPartyLibs")
+    set(ATK_DIR "${GEOSX_TPL_DIR}/axom" CACHE PATH "")
+endif()
 
-if(ATK_DIR)
-    if(NOT EXISTS ${ATK_DIR}/lib/cmake/axom_utils-targets.cmake)
-        MESSAGE(FATAL_ERROR "Could not find ATK cmake include file (${ATK_DIR}/lib/cmake/axom_utils-targets.cmake)")
-    endif()
-    include(${ATK_DIR}/lib/cmake/axom_utils-targets.cmake)
+if (EXISTS ${ATK_DIR})
+    message(STATUS "Using axom found at ${ATK_DIR}")
 
-
-    #if(ENABLE_MPI)
-      if(NOT EXISTS ${ATK_DIR}/lib/cmake/lumberjack-targets.cmake)
-          MESSAGE(FATAL_ERROR "Could not find ATK cmake include file (${ATK_DIR}/lib/cmake/lumberjack-targets.cmake)")
-      endif()
-    include(${ATK_DIR}/lib/cmake/lumberjack-targets.cmake)
-    #endif(ENABLE_MPI)
-
-    if(NOT EXISTS ${ATK_DIR}/lib/cmake/slic-targets.cmake)
-        MESSAGE(FATAL_ERROR "Could not find ATK cmake include file (${ATK_DIR}/lib/cmake/slic-targets.cmake)")
-    endif()
-    include(${ATK_DIR}/lib/cmake/slic-targets.cmake)
-
-
-    if(NOT EXISTS ${ATK_DIR}/lib/cmake/sidre-targets.cmake)
-        MESSAGE(FATAL_ERROR "Could not find ATK cmake include file (${ATK_DIR}/lib/cmake/sidre-targets.cmake)")
-    endif()
-    include(${ATK_DIR}/lib/cmake/sidre-targets.cmake)
-
-
-    #include("${ATK_CMAKE}/lumberjack-targets.cmake")
-    #include("${ATK_CMAKE}/sidre-targets.cmake")
-    #include("${ATK_CMAKE}/slic-targets.cmake")
-    include("${ATK_CMAKE}/mint-targets.cmake")
-    include("${ATK_CMAKE}/fmt-targets.cmake")
-    include("${ATK_CMAKE}/primal-targets.cmake")
-    include("${ATK_CMAKE}/slam-targets.cmake")
-    include("${ATK_CMAKE}/quest-targets.cmake")
-    include("${ATK_CMAKE}/slam-targets.cmake")
-    include("${ATK_CMAKE}/spio-targets.cmake")
-
-    set(ATK_FOUND TRUE)    
-    
+    set(ATK_FOUND TRUE)
     set(ATK_INCLUDE_DIRS ${ATK_DIR}/include)
+    set(ATK_CMAKE ${ATK_DIR}/lib/cmake)
+
+    include(${ATK_CMAKE}/fmt-targets.cmake)
+    include(${ATK_CMAKE}/sparsehash-targets.cmake)
+    include(${ATK_CMAKE}/axom-targets.cmake)
+
+    # wrap imported compile flags properly for nvcc
+    if(ENABLE_CUDA)
+        get_property(_axom_compile_flags TARGET axom PROPERTY INTERFACE_COMPILE_OPTIONS SET)
+        if(_axom_compile_flags)
+            get_property(_axom_compile_flags TARGET axom PROPERTY INTERFACE_COMPILE_OPTIONS)
+            set(_axom_compile_flags_wrapped)
+            foreach(_flag ${_axom_compile_flags})
+                list(APPEND _axom_compile_flags_wrapped
+                     $<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:${_flag}>
+                     $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=${_flag}>)
+            endforeach()
+            set_target_properties(axom PROPERTIES INTERFACE_COMPILE_OPTIONS "${_axom_compile_flags_wrapped}")
+        endif()
+    endif()
+
+    blt_register_library (NAME axom
+                          INCLUDES ${ATK_INCLUDE_DIRS}
+                          LIBRARIES axom
+                          TREAT_INCLUDES_AS_SYSTEM ON)
+                          
+    set(thirdPartyLibs ${thirdPartyLibs} axom )
+
 else()
     set(ATK_FOUND FALSE)
+    message("Not using axom")
 endif()
